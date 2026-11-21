@@ -25,5 +25,9 @@ IMMICH_BUNDLE_ID_DEV = app.futo.immich
 // Build scheme suffixes (`.debug`/`.profile`) will be appended
 IMMICH_GROUP_ID = group.app.immich.share
 
+// Host of the public Immich URL used by the PhotoKit background upload extension, without scheme.
+// Leave empty to keep the extension disabled.
+IMMICH_BACKGROUND_UPLOAD_HOST =
+
 // Optional per-developer configuration override
 #include? "Signing.local.xcconfig"
