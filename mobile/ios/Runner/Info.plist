@@ -4,6 +4,8 @@
   <dict>
     <key>AppGroupId</key>
     <string>$(CUSTOM_GROUP_ID)</string>
+    <key>ImmichBackgroundUploadServer</key>
+    <string>https://$(IMMICH_BACKGROUND_UPLOAD_HOST)</string>
     <key>BGTaskSchedulerPermittedIdentifiers</key>
     <array>
       <string>app.alextran.immich.background.refreshUpload</string>

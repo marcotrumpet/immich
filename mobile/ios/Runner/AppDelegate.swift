@@ -14,6 +14,13 @@ import native_video_player
     SwiftNativeVideoPlayerPlugin.cookieStorage = URLSessionManager.cookieStorage
     URLSessionManager.patchBackgroundDownloader()
     BackgroundWorkerApiImpl.registerBackgroundWorkers()
+    NotificationCenter.default.addObserver(
+      forName: UIApplication.didBecomeActiveNotification,
+      object: nil,
+      queue: .main
+    ) { _ in
+      BackgroundUploadSetup.enableIfPossible()
+    }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
