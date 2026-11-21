@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:immich_mobile/domain/models/album/local_album.model.dart';
 import 'package:immich_mobile/domain/models/asset/base_asset.model.dart';
 import 'package:immich_mobile/domain/models/store.model.dart';
+import 'package:immich_mobile/domain/services/local_deletion_sync.service.dart';
 import 'package:immich_mobile/domain/utils/cloud_id_resolver.dart';
 import 'package:immich_mobile/entities/store.entity.dart';
 import 'package:immich_mobile/extensions/platform_extensions.dart';
@@ -26,6 +27,7 @@ class LocalSyncService {
   final TrashedLocalAssetRepository _trashedLocalAssetRepository;
   final AssetMediaRepository _assetMediaRepository;
   final DevicePermissionRepository _permissionRepository;
+  final LocalDeletionSyncService? _localDeletionSyncService;
   final Completer<void>? _cancellation;
   final Logger _log = Logger("DeviceSyncService");
 
@@ -35,6 +37,7 @@ class LocalSyncService {
     required this._trashedLocalAssetRepository,
     required this._assetMediaRepository,
     required this._permissionRepository,
+    this._localDeletionSyncService,
     this._cancellation,
   }) {
     unawaited(_cancellation?.future.then((_) => _nativeSyncApi.cancelSync().onError(_log.warning)));
@@ -54,6 +57,8 @@ class LocalSyncService {
         }
       }
 
+      await _processDueServerTrash();
+
       if (full || await _nativeSyncApi.shouldFullSync()) {
         _log.fine("Full sync request from ${full ? "user" : "native"}");
         return await fullSync();
@@ -71,6 +76,7 @@ class LocalSyncService {
       final deviceAlbums = await _nativeSyncApi.getAlbums();
       await _localAlbumRepository.updateAll(deviceAlbums.toLocalAlbums());
       final newAssets = delta.updates.toLocalAssets();
+      await _enqueueServerTrash(delta.deletes);
       await _localAlbumRepository.processDelta(
         updates: newAssets,
         deletes: delta.deletes,
@@ -122,6 +128,30 @@ class LocalSyncService {
     } finally {
       stopwatch.stop();
       _log.info("Device sync took - ${stopwatch.elapsedMilliseconds}ms");
+    }
+  }
+
+  Future<void> _enqueueServerTrash(List<String> deletedLocalIds) async {
+    final service = _localDeletionSyncService;
+    if (service == null || !service.isEnabled) {
+      return;
+    }
+    try {
+      await service.enqueue(deletedLocalIds);
+    } catch (error, stack) {
+      _log.severe("Failed to queue local deletions for the server trash", error, stack);
+    }
+  }
+
+  Future<void> _processDueServerTrash() async {
+    final service = _localDeletionSyncService;
+    if (service == null || !service.isEnabled) {
+      return;
+    }
+    try {
+      await service.processDue();
+    } catch (error, stack) {
+      _log.severe("Failed to move locally deleted assets to the server trash", error, stack);
     }
   }
 

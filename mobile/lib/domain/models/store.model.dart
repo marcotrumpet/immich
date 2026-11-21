@@ -21,6 +21,10 @@ enum StoreKey<T> {
 
   syncMigrationStatus<String>._(1013),
 
+  syncLocalDeletionsToServer<bool>._(2000),
+  localDeletionQuarantineDays<int>._(2001),
+  pendingServerTrash<String>._(2002),
+
   // Legacy keys that have been migrated to the new metadata store
   legacyBackupRequireCharging<bool>._(7),
   legacyBackupTriggerDelay<int>._(8),

@@ -1,9 +1,11 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:immich_mobile/domain/services/hash.service.dart';
+import 'package:immich_mobile/domain/services/local_deletion_sync.service.dart';
 import 'package:immich_mobile/domain/services/local_sync.service.dart';
 import 'package:immich_mobile/domain/services/sync_stream.service.dart';
 import 'package:immich_mobile/infrastructure/repositories/sync_api.repository.dart';
 import 'package:immich_mobile/providers/api.provider.dart';
+import 'package:immich_mobile/providers/infrastructure/asset.provider.dart';
 import 'package:immich_mobile/providers/infrastructure/cancel.provider.dart';
 import 'package:immich_mobile/providers/infrastructure/db.provider.dart';
 import 'package:immich_mobile/providers/infrastructure/platform.provider.dart';
@@ -35,7 +37,16 @@ final localSyncServiceProvider = Provider((ref) {
     assetMediaRepository: ref.watch(assetMediaRepositoryProvider),
     permissionRepository: ref.watch(permissionRepositoryProvider),
     nativeSyncApi: ref.watch(nativeSyncApiProvider),
+    localDeletionSyncService: ref.watch(localDeletionSyncServiceProvider),
     cancellation: ref.watch(cancellationProvider),
+  );
+});
+
+final localDeletionSyncServiceProvider = Provider((ref) {
+  final db = ref.watch(driftProvider);
+  return LocalDeletionSyncService(
+    localAssetRepository: db.localAssetRepository,
+    assetService: ref.watch(assetServiceProvider),
   );
 });
 
