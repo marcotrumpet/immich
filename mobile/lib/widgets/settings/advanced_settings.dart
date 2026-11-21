@@ -11,6 +11,7 @@ import 'package:immich_mobile/generated/translations.g.dart';
 import 'package:immich_mobile/providers/infrastructure/platform.provider.dart';
 import 'package:immich_mobile/providers/infrastructure/readonly_mode.provider.dart';
 import 'package:immich_mobile/providers/infrastructure/settings.provider.dart';
+import 'package:immich_mobile/providers/infrastructure/sync.provider.dart';
 import 'package:immich_mobile/repositories/permission.repository.dart';
 import 'package:immich_mobile/services/app_settings.service.dart';
 import 'package:immich_mobile/utils/bytes_units.dart';
@@ -36,6 +37,10 @@ class AdvancedSettings extends HookConsumerWidget {
       (_, _) => unawaited(ref.read(settingsProvider).write(.imagePreferRemote, preferRemote.value)),
     );
     final readonlyModeEnabled = useAppSettingsState(AppSettingsEnum.readonlyModeEnabled);
+    final syncLocalDeletions = useAppSettingsState(AppSettingsEnum.syncLocalDeletionsToServer);
+    final quarantineDays = useAppSettingsState(AppSettingsEnum.localDeletionQuarantineDays);
+    final localDeletionSync = ref.watch(localDeletionSyncServiceProvider);
+    final pendingServerTrash = useState(localDeletionSync.getPending().length);
 
     final logLevel = Level.LEVELS[levelId.value].name;
 
@@ -99,6 +104,41 @@ class AdvancedSettings extends HookConsumerWidget {
                 manageMediaAndroidPermission.value = result;
               },
             ),
+          ],
+        ),
+      if (Platform.isIOS)
+        Column(
+          children: [
+            SettingsSwitchListTile(
+              enabled: true,
+              valueNotifier: syncLocalDeletions,
+              title: context.t.advanced_settings_sync_local_deletions_title,
+              subtitle: context.t.advanced_settings_sync_local_deletions_subtitle,
+            ),
+            if (syncLocalDeletions.value) ...[
+              SettingsSliderListTile(
+                text: context.t.advanced_settings_local_deletion_quarantine_title(days: quarantineDays.value),
+                valueNotifier: quarantineDays,
+                maxValue: 30,
+                minValue: 1,
+                noDivisons: 29,
+                label: quarantineDays.value.toString(),
+              ),
+              if (pendingServerTrash.value > 0)
+                ListTile(
+                  title: Text(
+                    context.t.advanced_settings_pending_server_trash_title(count: pendingServerTrash.value),
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  trailing: TextButton(
+                    onPressed: () async {
+                      await localDeletionSync.clearPending();
+                      pendingServerTrash.value = 0;
+                    },
+                    child: Text(context.t.advanced_settings_pending_server_trash_clear),
+                  ),
+                ),
+            ],
           ],
         ),
       SettingsSliderListTile(

@@ -50,6 +50,56 @@ class LocalAssetRepository extends DatabaseAccessor<Drift> with $LocalAssetRepos
 
   Future<LocalAsset?> get(String id) => _assetSelectable(id).getSingleOrNull();
 
+  Future<List<({String localId, String remoteId, String checksum})>> getBackedUpRemoteMatches(
+    Iterable<String> localIds,
+  ) async {
+    final matches = <({String localId, String remoteId, String checksum})>[];
+    for (final slice in localIds.toSet().slices(kDriftMaxChunk)) {
+      final query =
+          _db.selectOnly(_db.localAssetEntity).join([
+              innerJoin(
+                _db.remoteAssetEntity,
+                _db.localAssetEntity.checksum.equalsExp(_db.remoteAssetEntity.checksum) &
+                    _db.remoteAssetEntity.ownerId.isInQuery(
+                      _db.selectOnly(_db.authUserEntity)
+                        ..addColumns([_db.authUserEntity.id])
+                        ..limit(1),
+                    ),
+                useColumns: false,
+              ),
+            ])
+            ..addColumns([_db.localAssetEntity.id, _db.localAssetEntity.checksum, _db.remoteAssetEntity.id])
+            ..where(_db.localAssetEntity.id.isIn(slice) & _db.remoteAssetEntity.deletedAt.isNull());
+
+      final rows = await query.get();
+      for (final row in rows) {
+        matches.add((
+          localId: row.read(_db.localAssetEntity.id)!,
+          remoteId: row.read(_db.remoteAssetEntity.id)!,
+          checksum: row.read(_db.localAssetEntity.checksum)!,
+        ));
+      }
+    }
+    return matches;
+  }
+
+  Future<Set<String>> getStillPresent({required Iterable<String> ids, required Iterable<String> checksums}) async {
+    final present = <String>{};
+    for (final slice in ids.toSet().slices(kDriftMaxChunk)) {
+      final query = _db.selectOnly(_db.localAssetEntity)
+        ..addColumns([_db.localAssetEntity.id])
+        ..where(_db.localAssetEntity.id.isIn(slice));
+      present.addAll(await query.map((row) => row.read(_db.localAssetEntity.id)!).get());
+    }
+    for (final slice in checksums.toSet().slices(kDriftMaxChunk)) {
+      final query = _db.selectOnly(_db.localAssetEntity)
+        ..addColumns([_db.localAssetEntity.checksum])
+        ..where(_db.localAssetEntity.checksum.isIn(slice));
+      present.addAll(await query.map((row) => row.read(_db.localAssetEntity.checksum)!).get());
+    }
+    return present;
+  }
+
   Future<List<LocalAsset?>> getByChecksum(String checksum) {
     final query = _db.localAssetEntity.select()..where((lae) => lae.checksum.equals(checksum));
 
